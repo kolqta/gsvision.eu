@@ -578,10 +578,15 @@ class FrontControllerCore extends Controller
 
     public function initFooter()
     {
-		$customersInfo = Customer::getCustomersAddressOrderInfo();
+		$customersInfo = array();
+		$data = Customer::getCustomersAddressOrderInfo();
+		foreach ($data as $value) {
+			$customersInfo[$value['id_customer']] = $value;
+		}
 
         $this->context->smarty->assign([
             'customersInfo' => $customersInfo,
+            'id' => $this->context->customer->id,
         ]);
     }
 
