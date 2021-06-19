@@ -1417,7 +1417,7 @@ class CustomerCore extends ObjectModel
      */
     public static function getCustomersAddressOrderInfo()
     {
-        return Db::getInstance()->executeS('SELECT c.firstname, c.lastname, c.email, a.alias, a.company, a.firstname as add_firstname, a.lastname as add_lastname, a.address1, a.address2, a.postcode, a.city, a.phone, (SELECT COUNT(id_order) FROM `ps_orders` WHERE id_customer = c.id_customer LIMIT 1) AS count
+        return Db::getInstance()->executeS('SELECT c.id_customer, c.firstname, c.lastname, c.email, a.alias, a.company, a.firstname as add_firstname, a.lastname as add_lastname, a.address1, a.address2, a.postcode, a.city, a.phone, (SELECT COUNT(id_order) FROM `ps_orders` WHERE id_customer = c.id_customer LIMIT 1) AS count
 			FROM `' . _DB_PREFIX_ . 'customer` c
 				LEFT JOIN `' . _DB_PREFIX_ . 'address` a
 					ON (c.`id_customer` = a.`id_customer`)
