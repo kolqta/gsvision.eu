@@ -49,11 +49,6 @@ class Gsadditionalinfos extends Module
 
         $this->displayName = $this->l('gsadditionalinfos');
         $this->description = $this->l('Opis - gsadditionalinfos');
-		
-		// С цел ако се преработва модула след инсталация
-        if (!Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT')) {
-			Configuration::updateValue('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT', '');
-		}
     }
 
     /**
@@ -65,6 +60,7 @@ class Gsadditionalinfos extends Module
         Configuration::updateValue('GSADDITIONALINFOS_LIVE_MODE', false);
         Configuration::updateValue('GS_ADDITIONAL_INFOS_NBR_PR_BRAND', '');
         Configuration::updateValue('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT', '');
+        Configuration::updateValue('GS_ADDITIONAL_INFOS_NBR_PR_CATEGORY', '');
 
         return parent::install() &&
             $this->registerHook('header') &&
@@ -81,6 +77,7 @@ class Gsadditionalinfos extends Module
         Configuration::deleteByName('GSADDITIONALINFOS_LIVE_MODE');
         Configuration::deleteByName('GS_ADDITIONAL_INFOS_NBR_PR_BRAND');
         Configuration::deleteByName('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT');
+        Configuration::deleteByName('GS_ADDITIONAL_INFOS_NBR_PR_CATEGORY');
 
         return parent::uninstall();
     }
@@ -90,22 +87,58 @@ class Gsadditionalinfos extends Module
      */
     public function getContent()
     {
+        $current_url = 'index.php?controller=AdminModules&configure='.$this->name.'&token='.
+        Tools::getValue('token').'&tab_module='.$this->tab.'&module_name='.$this->name;
+        $this->context->smarty->assign(array('current_url' => $current_url));
+		
         /**
          * If values have been submitted in the form, process.
          */
         if (((bool)Tools::isSubmit('submitGsadditionalinfosModule')) == true) {
             $this->postProcess();
         }
+		
+        /**
+         * autocomplete
+         */
+        if (((bool)Tools::getValue('autocomplete'))) {
+			$result = $this->prepareProductArrayForAjaxReturn();
+			if (!empty($result)) {
+				echo json_encode($result);
+			}
+			
+			 exit;
+		}
 
         $this->context->smarty->assign('module_dir', $this->_path);
 
-        $output = $this->renderForm();
+		 $output = '';
+        $output .= $this->renderForm();
         $output .= $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
-
-        // $this->context->controller->addJqueryUI('ui.autocomplete');
 		
         return $output;
     }
+	
+	public function prepareProductArrayForAjaxReturn()
+	{
+		$sql = '
+SELECT p.id_product as id, pl.name as value
+FROM '._DB_PREFIX_.'product p
+	INNER JOIN `'._DB_PREFIX_.'product_lang` pl ON (p.`id_product` = pl.`id_product` AND pl.`id_lang` = '.(int)$this->context->language->id.')
+	'.Shop::addSqlAssociation('product', 'p').'
+	INNER JOIN `'._DB_PREFIX_.'category_lang` cl ON (product_shop.`id_category_default` = cl.`id_category` AND cl.`id_lang` = '.(int)$this->context->language->id.')
+WHERE cl.id_category = '.Tools::getValue('c').'
+AND pl.name LIKE "%'.Tools::getValue('s').'%"';
+		$sql = '
+SELECT DISTINCT p.id_product as id, pl.name as value
+FROM '._DB_PREFIX_.'product p
+	INNER JOIN `'._DB_PREFIX_.'product_lang` pl ON (p.`id_product` = pl.`id_product` AND pl.`id_lang` = '.(int)$this->context->language->id.')
+	'.Shop::addSqlAssociation('product', 'p').'
+	INNER JOIN `'._DB_PREFIX_.'category_lang` cl ON (product_shop.`id_category_default` = cl.`id_category` AND cl.`id_lang` = '.(int)$this->context->language->id.')
+';
+
+		return Db::getInstance()->executeS($sql, true, false);
+	}
 
     /**
      * Create the form that will be displayed in the configuration of your module.
@@ -140,6 +173,17 @@ class Gsadditionalinfos extends Module
      */
     protected function getConfigForm()
     {
+        $categories = array();
+        $Category = new Category;
+        $category_tree = $Category->getCategories();
+        foreach ($category_tree as $cat_l_1) {
+            foreach ($cat_l_1 as $cat_l_2) {
+                $categories[] = array(
+                'id_option' => $cat_l_2['infos']['id_category'],
+                'name' => $cat_l_2['infos']['name']
+                );
+            }
+        }
         return array(
             'form' => array(
                 'legend' => array(
@@ -176,6 +220,19 @@ class Gsadditionalinfos extends Module
                     ),
                     array(
                         'col' => 3,
+                        'type'  => 'select',
+                        'label' => $this->l('Categories'),
+                        'desc'    => $this->l($text),
+                        'name'  => 'GS_ADDITIONAL_INFOS_NBR_PR_CATEGORY',
+                        'required' => true,
+                        'options' => array(
+                            'query' => $categories,
+                            'id' => 'id_option',
+                            'name' => 'name'
+                        ),
+                    ),
+                    array(
+                        'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-search"></i>',
                         'desc' => $this->l('Топ продукт в сайта:'),
@@ -197,8 +254,9 @@ class Gsadditionalinfos extends Module
     {
         return array(
             'GSADDITIONALINFOS_LIVE_MODE' => Configuration::get('GSADDITIONALINFOS_LIVE_MODE', true),
-            'GS_ADDITIONAL_INFOS_NBR_PR_BRAND' => Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_BRAND', 'contact@prestashop.com'),
-            'GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT' => Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT', null),
+            'GS_ADDITIONAL_INFOS_NBR_PR_BRAND' => Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_BRAND', ''),
+            'GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT' => Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT', ''),
+            'GS_ADDITIONAL_INFOS_NBR_PR_CATEGORY' => Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_CATEGORY', ''),
         );
     }
 
@@ -219,7 +277,8 @@ class Gsadditionalinfos extends Module
     */
     public function hookDisplayBackOfficeHeader()
     {
-        if (Tools::getValue('module_name') == $this->name) {
+        if (Tools::getValue('configure') == $this->name) {
+			$this->context->controller->addJqueryUI('ui.autocomplete');
             $this->context->controller->addJS($this->_path.'views/js/back.js');
             $this->context->controller->addCSS($this->_path.'views/css/back.css');
         }
