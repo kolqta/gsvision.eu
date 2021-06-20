@@ -49,6 +49,11 @@ class Gsadditionalinfos extends Module
 
         $this->displayName = $this->l('gsadditionalinfos');
         $this->description = $this->l('Opis - gsadditionalinfos');
+		
+		// С цел ако се преработва модула след инсталация
+        if (!Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT')) {
+			Configuration::updateValue('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT', '');
+		}
     }
 
     /**
@@ -58,10 +63,12 @@ class Gsadditionalinfos extends Module
     public function install()
     {
         Configuration::updateValue('GSADDITIONALINFOS_LIVE_MODE', false);
+        Configuration::updateValue('GS_ADDITIONAL_INFOS_NBR_PR_BRAND', '');
+        Configuration::updateValue('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT', '');
 
         return parent::install() &&
             $this->registerHook('header') &&
-            $this->registerHook('backOfficeHeader') &&
+            $this->registerHook('displayBackOfficeHeader') &&
             $this->registerHook('actionProductListOverride') &&
             $this->registerHook('displayFooter') &&
             $this->registerHook('displayFooterProduct') &&
@@ -72,6 +79,8 @@ class Gsadditionalinfos extends Module
     public function uninstall()
     {
         Configuration::deleteByName('GSADDITIONALINFOS_LIVE_MODE');
+        Configuration::deleteByName('GS_ADDITIONAL_INFOS_NBR_PR_BRAND');
+        Configuration::deleteByName('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT');
 
         return parent::uninstall();
     }
@@ -90,8 +99,11 @@ class Gsadditionalinfos extends Module
 
         $this->context->smarty->assign('module_dir', $this->_path);
 
-        $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
+        $output = $this->renderForm();
+        $output .= $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
 
+        // $this->context->controller->addJqueryUI('ui.autocomplete');
+		
         return $output;
     }
 
@@ -157,15 +169,18 @@ class Gsadditionalinfos extends Module
                     array(
                         'col' => 3,
                         'type' => 'text',
-                        'prefix' => '<i class="icon icon-envelope"></i>',
-                        'desc' => $this->l('Enter a valid email address'),
-                        'name' => 'GSADDITIONALINFOS_ACCOUNT_EMAIL',
-                        'label' => $this->l('Email'),
+                        'prefix' => '<i class="icon icon-file-text"></i>',
+                        'desc' => $this->l('Брой продукти от марка:'),
+                        'name' => 'GS_ADDITIONAL_INFOS_NBR_PR_BRAND',
+                        'label' => $this->l('Mark'),
                     ),
                     array(
-                        'type' => 'password',
-                        'name' => 'GSADDITIONALINFOS_ACCOUNT_PASSWORD',
-                        'label' => $this->l('Password'),
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '<i class="icon icon-search"></i>',
+                        'desc' => $this->l('Топ продукт в сайта:'),
+                        'name' => 'GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT',
+                        'label' => $this->l('Top product'),
                     ),
                 ),
                 'submit' => array(
@@ -182,8 +197,8 @@ class Gsadditionalinfos extends Module
     {
         return array(
             'GSADDITIONALINFOS_LIVE_MODE' => Configuration::get('GSADDITIONALINFOS_LIVE_MODE', true),
-            'GSADDITIONALINFOS_ACCOUNT_EMAIL' => Configuration::get('GSADDITIONALINFOS_ACCOUNT_EMAIL', 'contact@prestashop.com'),
-            'GSADDITIONALINFOS_ACCOUNT_PASSWORD' => Configuration::get('GSADDITIONALINFOS_ACCOUNT_PASSWORD', null),
+            'GS_ADDITIONAL_INFOS_NBR_PR_BRAND' => Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_BRAND', 'contact@prestashop.com'),
+            'GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT' => Configuration::get('GS_ADDITIONAL_INFOS_NBR_PR_TOP_PRODUCT', null),
         );
     }
 
@@ -202,7 +217,7 @@ class Gsadditionalinfos extends Module
     /**
     * Add the CSS & JavaScript files you want to be loaded in the BO.
     */
-    public function hookBackOfficeHeader()
+    public function hookDisplayBackOfficeHeader()
     {
         if (Tools::getValue('module_name') == $this->name) {
             $this->context->controller->addJS($this->_path.'views/js/back.js');
